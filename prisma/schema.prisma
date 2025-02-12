@@ -1,0 +1,69 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+// model Post {
+//   id        Int      @id @default(autoincrement())
+//   createdAt DateTime @default(now())
+//   updatedAt DateTime @updatedAt
+//   title     String   @db.VarChar(255)
+//   content   String?
+//   published Boolean  @default(false)
+//   author    User     @relation(fields: [authorId], references: [id])
+//   authorId  Int
+// }
+
+// model Profile {
+//   id     Int     @id @default(autoincrement())
+//   bio    String?
+//   user   User    @relation(fields: [userId], references: [id])
+//   userId Int     @unique
+// }
+
+// model User {
+//   id      Int      @id @default(autoincrement())
+//   email   String   @unique
+//   name    String?
+//   posts   Post[]
+//   profile Profile?
+// }
+model User {
+  id          String        @id @default(uuid())
+  name        String
+  email       String        @unique
+  password    String
+  created_at  DateTime      @default(now())
+  updated_at  DateTime      @updatedAt
+  rooms       Room[] // One-to-Many: A user can create multiple rooms
+  memberships Room_member[] // One-to-Many: A user can join multiple rooms
+}
+
+model Room {
+  id         String        @id @default(uuid())
+  creator    User          @relation(fields: [creator_id], references: [id])
+  creator_id String
+  name       String
+  created_at DateTime      @default(now())
+  updated_at DateTime      @updatedAt
+  members    Room_member[] // One-to-Many: A room can have multiple members
+}
+
+model Room_member {
+  id        String   @id @default(uuid())
+  user      User     @relation(fields: [user_id], references: [id], onDelete: Cascade) // Foreign key to User
+  user_id   String
+  room      Room     @relation(fields: [room_id], references: [id], onDelete: Cascade) // Foreign key to Room
+  room_id   String
+  joined_at DateTime @default(now())
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
