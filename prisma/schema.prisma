@@ -36,6 +36,7 @@ model User {
   password    String
   created_at  DateTime      @default(now())
   updated_at  DateTime      @updatedAt
+  refreshToken String
   rooms       Room[] // One-to-Many: A user can create multiple rooms
   memberships Room_member[] // One-to-Many: A user can join multiple rooms
 }
