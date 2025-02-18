@@ -26,6 +26,7 @@
   "devDependencies": {
     "@tsconfig/node20": "^20.1.4",
     "@types/express": "^5.0.0",
+    "@types/jsonwebtoken": "^9.0.8",
     "@types/morgan": "^1.9.9",
     "@types/node": "^22.13.1",
     "esbuild": "^0.25.0",
