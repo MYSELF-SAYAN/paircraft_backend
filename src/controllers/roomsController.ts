@@ -2,6 +2,7 @@ import { Request, Response, RequestHandler } from "express";
 import prisma from "../database/db.config";
 import { JwtPayload } from "jsonwebtoken";
 import { create } from "domain";
+import { RoomRole } from "@prisma/client";
 
 export const createRoom = async (
   req: Request,
@@ -70,7 +71,7 @@ export const getRoomRequests = async (
     const requests = await prisma.joinRequest.findMany({
       where: {
         room_id: roomId,
-        status: "PENDING", 
+        status: "PENDING",
       },
     });
     res.status(200).json(requests);
@@ -141,27 +142,8 @@ export const approveJoinRequest = async (
   res: Response
 ): Promise<void> => {
   const { roomId, requestId } = req.params;
-  const userId = ((req as JwtPayload) || String).data?.id;
+  const { userId } = req.body;
   try {
-    const checkRoomExists = await prisma.room.findFirst({
-      where: {
-        id: roomId,
-      },
-    });
-    if (!checkRoomExists) {
-      res.status(401).json({ message: "Room does not exists" });
-    }
-    const alreadyJoined = await prisma.room_member.findFirst({
-      where: {
-        room_id: roomId,
-        user_id: userId,
-      },
-    });
-    if (alreadyJoined) {
-      res
-        .status(400)
-        .json({ message: "You are already a member of this room" });
-    }
     await prisma.joinRequest.update({
       where: {
         id: requestId,
@@ -188,25 +170,6 @@ export const rejectJoinRequest = async (
   const { roomId, requestId } = req.params;
   const userId = ((req as JwtPayload) || String).data?.id;
   try {
-    const checkRoomExists = await prisma.room.findFirst({
-      where: {
-        id: roomId,
-      },
-    });
-    if (!checkRoomExists) {
-      res.status(401).json({ message: "Room does not exists" });
-    }
-    const alreadyJoined = await prisma.room_member.findFirst({
-      where: {
-        room_id: roomId,
-        user_id: userId,
-      },
-    });
-    if (alreadyJoined) {
-      res
-        .status(400)
-        .json({ message: "You are already a member of this room" });
-    }
     await prisma.joinRequest.update({
       where: {
         id: requestId,
@@ -220,11 +183,141 @@ export const rejectJoinRequest = async (
     res.status(500).json({ message: "Internal server error" });
   }
 };
+export const promoteUser = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const { memberId } = req.params;
+  const { role } = req.body;
+  try {
+    if (role != "EDITOR" && role != "OWNER") {
+      res.status(400).json({ message: "Role is not permitted or Invalid" });
+      return;
+    }
+    const existingMember = await prisma.room_member.findFirst({
+      where: {
+        id: memberId,
+        // user_id: memberId, // Correct field from your model
+        // room_id: roomId,
+      },
+    });
+
+    if (!existingMember) {
+      res.status(404).json({ message: "Room member not found!" });
+      return;
+    }
+
+    await prisma.room_member.update({
+      where: {
+        id: memberId, // Now we use the id from the found record
+      },
+      data: {
+        role: role as RoomRole,
+      },
+    });
+
+    res.status(200).json({ message: `User promoted to ${role} successfully` });
+  } catch (err) {
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+export const removeUser = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const { memberId } = req.params;
+  try {
+    const existingMember = await prisma.room_member.findFirst({
+      where: {
+        id: memberId,
+      },
+    });
+
+    if (!existingMember) {
+      res.status(404).json({ message: "Room member not found!" });
+      return;
+    }
+
+    await prisma.room_member.delete({
+      where: {
+        id: memberId,
+      },
+    });
+
+    res.status(200).json({ message: `User removed successfully` });
+  } catch (err) {
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+export const getRoomMembers = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const { roomId } = req.params;
+  try {
+    const allMembers =await prisma.room_member.findMany({
+      where: {
+        room_id: roomId,
+      },
+    });
+    res.status(200).json(allMembers);
+  } catch (err) {
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 export const leaveRoom = async (req: Request, res: Response): Promise<void> => {
   const { roomId } = req.params;
   const userId = ((req as JwtPayload) || String).data?.id;
   try {
   } catch (err) {
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+export const sendMessage = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const { roomId } = req.params;
+  const { message } = req.body;
+  const userId = ((req as JwtPayload) || String).data?.id;
+  try{
+    const user=await prisma.user.findUnique({
+      where:{
+        id:userId
+      }
+    })
+    if(!user){
+      res.status(404).json({ message: "User not found!" });
+      return;
+    }
+    const data=await prisma.message.create({
+      data:{
+        room_id:roomId,
+        user_id:userId,
+        content:message
+      }
+    })
+    res.status(200).json({ message: "Message sent successfully by "+user.name });
+  }
+  catch(err){
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+export const getMessage = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const {roomId}=req.params
+  try{
+    const messages=await prisma.message.findMany({
+      where:{
+        room_id:roomId
+      }
+    })
+    res.status(200).json(messages);
+  }
+  catch(err){
     res.status(500).json({ message: "Internal server error" });
   }
 };
