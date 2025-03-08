@@ -1,7 +1,7 @@
 import { Request, Response, RequestHandler } from "express";
 import argon2 from "argon2";
 import prisma from "../database/db.config";
-import jwt from "jsonwebtoken";
+import jwt, { JwtPayload } from "jsonwebtoken";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -77,5 +77,23 @@ export const loginUser: RequestHandler = async (req, res): Promise<void> => {
       .json({ message: "User logged in successfully", token: token });
   } catch (err) {
     res.status(500).json({ message: "Something went wrong" });
+  }
+};
+
+export const getUser = async (req: Request, res: Response): Promise<void> => {
+  const userId = ((req as JwtPayload) || String).data?.id;
+  try {
+    const user = await prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+      select:{
+        id: true,
+        name: true,
+      }
+    });
+    res.status(200).json(user);
+  } catch (err) {
+    res.status(500).json({ message: "Internal server error" });
   }
 };

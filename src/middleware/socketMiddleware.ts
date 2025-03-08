@@ -1,31 +1,29 @@
-import { Socket } from 'socket.io';
-import jwt from 'jsonwebtoken';
+import { Socket } from "socket.io";
+import { ExtendedError } from "socket.io/dist/namespace";
+import jwt from "jsonwebtoken";
 
-export const authenticateSocket = (socket: Socket, next: (err?: Error) => void): void => {
-  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-  // const token: string | undefined = socket.handshake.auth.token || socket.handshake.query.token;
+interface DecodedUser {
+  id: string;
+  email: string;
+}
 
-  // console.log('Headers:', socket.handshake.headers);
-  // console.log('Auth:', socket.handshake.auth);
-  // const token: string = socket.handshake.auth.token;
+interface AuthSocket extends Socket {
+  user?: DecodedUser;
+}
 
-  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-  const token: string | undefined = socket.handshake.auth?.token || socket.handshake.headers.authorization?.split(' ')[1];
+export const socketAuth = (socket: AuthSocket, next: (err?: ExtendedError) => void) => {
+  const token = socket.handshake.auth?.token || socket.handshake.query?.token;
 
-  if (token == null || token === '') {
-    return next(new Error('Authentication error: No token provided'));
+  if (!token) {
+    return next(new Error("Authentication error: Token missing"));
   }
 
-  const secret = process.env.JWT_SECRET;
-  if (secret == null || secret === '') {
-    return next(new Error('Authentication error: JWT secret is not defined'));
-  }
+  jwt.verify(token, process.env.JWT_SECRET as string, {}, (err: any, decoded: any) => {
+    if (err || !decoded || typeof decoded === 'string') {
+      return next(new Error("Authentication error: Invalid token"));
+    }
 
-  try {
-    const decoded = jwt.verify(token, secret);
-    (socket.data as any)= decoded;
+    socket.user = decoded as DecodedUser;
     next();
-  } catch (error) {
-    return next(new Error('Authentication error: Invalid token'));
-  }
+  });
 };

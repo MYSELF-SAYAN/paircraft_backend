@@ -1,12 +1,12 @@
 import { Router } from "express";
-import { createRoom,getRooms,getRoom,joinRoomRequest,getRoomRequests,approveJoinRequest,rejectJoinRequest,promoteUser,removeUser,getRoomMembers,sendMessage,getMessage } from "../controllers/roomsController";
+import { createRoom,getRooms,getRoom,joinRoomRequest,getCodeSnapshot,getRoomRequests,approveJoinRequest,rejectJoinRequest,promoteUser,removeUser,getRoomMembers,sendMessage,getMessage } from "../controllers/roomsController";
 import { authenticateUser } from "../middleware/authMiddleware";
 import { checkRoomRole } from "../middleware/checkRoomRole";
 const router: Router = Router();
 // 🌟 Room Management
 router.post("/create", authenticateUser, createRoom);         // Create a new room
 router.get("/", authenticateUser, getRooms);                 // Get all rooms the user is part of
-// router.get("/:roomId", authenticateUser, getRoom);           // Get a single room's details
+
 router.post("/join/:roomId", authenticateUser, joinRoomRequest); // Request to join a room
 // router.post("/leave/:roomId", authenticateUser, leaveRoom);  // Leave a room
 
@@ -29,7 +29,7 @@ router.get("/:roomId/messages", authenticateUser,checkRoomRole(["OWNER","EDITOR"
 
 // // 🔄 Code Collaboration
 // router.post("/:roomId/code", authenticateUser, updateCodeSnapshot); // Update code snapshot for a room
-// router.get("/:roomId/code", authenticateUser, getCodeSnapshot);     // Get the latest code snapshot for a room
+router.get("/:roomId/code", authenticateUser, getCodeSnapshot);     // Get the latest code snapshot for a room
 
-
+router.get("/:roomId", authenticateUser, getRoom);           // Get a single room's details
 export default router;
