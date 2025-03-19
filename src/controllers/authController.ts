@@ -50,7 +50,8 @@ export const createUser = async (
         name: username,
         password: hashedPassword,
         email,
-        verificationToken,
+        verificationToken: verificationToken,
+        refreshToken: "", 
       },
     });
     const mailOptions = {
