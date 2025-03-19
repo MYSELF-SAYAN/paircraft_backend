@@ -3,9 +3,11 @@ model User {
   name         String
   email        String        @unique
   password     String
+  isVerified   Boolean       @default(false)  // Email verification status
+  verificationToken String?  // Token for email verification
   created_at   DateTime      @default(now())
   updated_at   DateTime      @updatedAt
-  refreshToken String
+  refreshToken String?       // Optional: Used for authentication
   rooms        Room[]        // One-to-Many: A user can create multiple rooms
   memberships  Room_member[] // One-to-Many: A user can join multiple rooms
   messages     Message[]     // One-to-Many: A user can send multiple messages
@@ -14,7 +16,7 @@ model User {
 
 model Room {
   id           String        @id @default(uuid())
-  creator      User          @relation(fields: [creator_id], references: [id])
+  creator      User          @relation(fields: [creator_id], references: [id], onDelete: Cascade)
   creator_id   String
   name         String
   created_at   DateTime      @default(now())
@@ -39,9 +41,9 @@ enum RequestStatus {
 
 model Room_member {
   id        String   @id @default(uuid())
-  user      User     @relation(fields: [user_id], references: [id], onDelete: Cascade) // Foreign key to User
+  user      User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
   user_id   String
-  room      Room     @relation(fields: [room_id], references: [id], onDelete: Cascade) // Foreign key to Room
+  room      Room     @relation(fields: [room_id], references: [id], onDelete: Cascade)
   room_id   String
   role      RoomRole @default(VIEWER) // Default role is Viewer
   joined_at DateTime @default(now())
@@ -53,15 +55,15 @@ model JoinRequest {
   user_id   String
   room      Room          @relation(fields: [room_id], references: [id], onDelete: Cascade)
   room_id   String
-  status    RequestStatus @default(PENDING) // PENDING, ACCEPTED, REJECTED
+  status    RequestStatus @default(PENDING)
   created_at DateTime     @default(now())
 }
 
 model Message {
   id        String   @id @default(uuid())
-  user      User     @relation(fields: [user_id], references: [id], onDelete: Cascade) // Message sender
+  user      User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
   user_id   String
-  room      Room     @relation(fields: [room_id], references: [id], onDelete: Cascade) // Room the message belongs to
+  room      Room     @relation(fields: [room_id], references: [id], onDelete: Cascade)
   room_id   String
   content   String
   created_at DateTime @default(now())
@@ -69,7 +71,7 @@ model Message {
 
 model CodeSnapshot {
   id        String   @id @default(uuid())
-  room      Room     @relation(fields: [room_id], references: [id], onDelete: Cascade) // Room associated with the snapshot
+  room      Room     @relation(fields: [room_id], references: [id], onDelete: Cascade)
   room_id   String   @unique
   code      String   // The current state of the code
   updated_at DateTime @default(now())

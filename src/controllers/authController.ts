@@ -3,8 +3,20 @@ import argon2 from "argon2";
 import prisma from "../database/db.config";
 import jwt, { JwtPayload } from "jsonwebtoken";
 import dotenv from "dotenv";
-
+import nodemailer from "nodemailer";
 dotenv.config();
+const transporter = nodemailer.createTransport({
+  host: "smtp.gmail.com",
+  port: 587,
+  secure: false,
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+  tls: {
+    rejectUnauthorized: false,
+  },
+});
 export const createUser = async (
   req: Request,
   res: Response
@@ -27,20 +39,65 @@ export const createUser = async (
       res.status(400).json({ message: "User already exists" });
       return;
     }
-
+    const verificationToken = jwt.sign(
+      { email },
+      process.env.JWT_SECRET as string,
+      { expiresIn: "1h" }
+    );
+    const verificationLink = `${process.env.FRONTEND_URL}/verify-email?token=${verificationToken}`;
     const user = await prisma.user.create({
       data: {
         name: username,
         password: hashedPassword,
         email,
-        refreshToken: "",
+        verificationToken,
       },
     });
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: "Verify Your Email",
+      html: `
+        <h1>Hi ${username},</h1>
+        <h2>Verify Your Email</h2>
+        <p>
+          Click the link below to verify your email address:
+          <a href="${verificationLink}" target="_blank" rel="noopener noreferrer">${verificationLink}</a>
+        </p>
+      `,
+    };
+    await transporter.sendMail(mailOptions);
 
     res.status(201).json({ message: "User created successfully", user });
   } catch (error) {
     console.error("Error creating user:", error);
     res.status(500).json({ message: "Error creating user" });
+  }
+};
+export const verifyEmail = async (req: Request, res: Response) => {
+  const { token } = req.body;
+  try {
+    const decodedToken = jwt.verify(
+      token as string,
+      process.env.JWT_SECRET as string
+    ) as JwtPayload;
+    if(!decodedToken.email){
+      res.status(400).json({ message: "Invalid token" });
+      return;
+    }
+    const { email } = decodedToken;
+    await prisma.user.update({
+      where: {
+        email: email,
+      },
+      data: {
+        isVerified: true,
+      },
+    });
+    res.status(200).json({ message: "Email verified successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Internal server error" });
   }
 };
 export const loginUser: RequestHandler = async (req, res): Promise<void> => {
@@ -56,6 +113,10 @@ export const loginUser: RequestHandler = async (req, res): Promise<void> => {
     });
     if (!user) {
       res.status(404).json({ message: "User not found" });
+      return;
+    }
+    if(!user.isVerified){
+      res.status(404).json({ message: "User is not verified" });
       return;
     }
     const passwordValid = await argon2.verify(user.password, password);
@@ -87,10 +148,10 @@ export const getUser = async (req: Request, res: Response): Promise<void> => {
       where: {
         id: userId,
       },
-      select:{
+      select: {
         id: true,
         name: true,
-      }
+      },
     });
     res.status(200).json(user);
   } catch (err) {

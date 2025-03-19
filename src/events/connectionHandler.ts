@@ -20,10 +20,10 @@ export const connectionHandler = (socket: Socket, io: Server) => {
   });
   socket.on("join_room", async ({ roomId }) => {
     const userId = (socket as AuthSocket).user?.id;
-    console.log(`👤 User ID: ${userId}`);
+
     if (!userId) {
       console.log("❌ User is not authenticated!");
-      return socket.emit("error", "Authentication required.");
+      return socket.emit("join_error", "Authentication required.");
     }
     try {
       // Check if the user is a member of the room
@@ -46,7 +46,7 @@ export const connectionHandler = (socket: Socket, io: Server) => {
 
       if (!membership) {
         console.log(`❌ User ${userId} is not a member of room ${roomId}`);
-        socket.emit("error", "You are not a member of this room.");
+        socket.emit("join_error", "You are not a member of this room.");
         return;
       }
 
@@ -127,6 +127,21 @@ export const connectionHandler = (socket: Socket, io: Server) => {
       socket.emit("error", "Failed to send the message.");
     }
   });
+  socket.on("joining_request", async ({ roomId }) => {
+    try {
+      console.log("new Joining request");
+
+      io.to(roomId).emit("joining_request_sent", { roomId });
+    } catch (error) {
+      console.error("Error sending joining request:", error);
+      socket.emit("error", "Failed to send the joining request.");
+    }
+  });
+  socket.on("accepted_request", async ({ roomId, userId }) => {
+    console.log("Accepted the request");
+    // socket.emit("approved_request", { roomId, userId });
+    io.to(roomId).emit("approved_request");
+  });
 
   socket.on("language_change", async ({ roomId, language }) => {
     try {
@@ -136,14 +151,14 @@ export const connectionHandler = (socket: Socket, io: Server) => {
       socket.emit("error", "Failed to change the language.");
     }
   });
-  socket.on("output_change", async ({ roomId, output,error }) => {
+  socket.on("output_change", async ({ roomId, output, error }) => {
     try {
-      io.to(roomId).emit("output_changed", { output,error });
+      io.to(roomId).emit("output_changed", { output, error });
     } catch (e) {
       console.error("Error changing output:", e);
       socket.emit("error", "Failed to change the output.");
     }
-  })
+  });
   // 🔄 CODE UPDATE (for collaborative coding)
   socket.on("code_update", async ({ roomId, code }) => {
     try {
@@ -170,17 +185,15 @@ export const connectionHandler = (socket: Socket, io: Server) => {
     socket.to(roomId).emit("cursor_updated", { username, position });
   });
   // 🏁 LEAVE ROOM
-  socket.on("leave_room", ({ roomId, userId }) => {
-    console.log(`🚪 User ${userId} left room: ${roomId}`);
+  socket.on("leave_room", ({ roomId }) => {
+    console.log(`🚪 User  left room: ${roomId}`);
 
     // Remove socket from the room
     socket.leave(roomId);
 
     // Notify others in the room
     io.to(roomId).emit("user_left", {
-      userId,
       roomId,
-      message: `User ${userId} has left the room.`,
     });
   });
 

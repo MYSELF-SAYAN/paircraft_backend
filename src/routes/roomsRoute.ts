@@ -1,14 +1,14 @@
 import { Router } from "express";
-import { createRoom,getRooms,getRoom,joinRoomRequest,getCodeSnapshot,getRoomRequests,approveJoinRequest,rejectJoinRequest,promoteUser,removeUser,getRoomMembers,sendMessage,getMessage } from "../controllers/roomsController";
+import { createRoom,getRooms,getRoom,joinRoomRequest,getCodeSnapshot,getRoomRequests,deleteRoom,approveJoinRequest,rejectJoinRequest,promoteUser,removeUser,getRoomMembers,sendMessage,getMessage,leaveRoom } from "../controllers/roomsController";
 import { authenticateUser } from "../middleware/authMiddleware";
 import { checkRoomRole } from "../middleware/checkRoomRole";
 const router: Router = Router();
 // 🌟 Room Management
 router.post("/create", authenticateUser, createRoom);         // Create a new room
 router.get("/", authenticateUser, getRooms);                 // Get all rooms the user is part of
-
+router.delete("/:roomId", authenticateUser,checkRoomRole(["OWNER"]), deleteRoom); // Delete a room
 router.post("/join/:roomId", authenticateUser, joinRoomRequest); // Request to join a room
-// router.post("/leave/:roomId", authenticateUser, leaveRoom);  // Leave a room
+router.post("/leave/:roomId", authenticateUser, leaveRoom);  // Leave a room
 
 // // 🔑 Join Requests Management (Admin only)
 router.get("/:roomId/requests", authenticateUser,checkRoomRole(["OWNER"]), getRoomRequests);    // Get pending join requests for a room

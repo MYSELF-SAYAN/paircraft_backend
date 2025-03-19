@@ -6,13 +6,13 @@ export const authenticateUser = async (req: Request, res: Response, next: NextFu
     try{
         const authHeader=req.headers.authorization;
         if(!authHeader){
-            res.status(401).json({ message: "Unauthorized" });
+            res.status(401).json({ message: "Unauthorized header" });
             return;
         }
         const token = authHeader.split(" ")[1];
         jwt.verify(token, process.env.JWT_SECRET as string, (err, decoded) => {
             if (err) {
-                res.status(401).json({ message: "Unauthorized" });
+                res.status(401).json({ message: "Unauthorized user" });
                 return;
             }
             // res.status(200).json(decoded);

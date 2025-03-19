@@ -50,6 +50,13 @@ export const getRooms = async (req: Request, res: Response): Promise<void> => {
     }
 
     const rooms = await prisma.room.findMany({
+      where: {
+        members: {
+          some: {
+            user_id: id,
+          },
+        },
+      },
       include: {
         members: true, // Only used to get total count & user's role
       },
@@ -112,9 +119,7 @@ export const getRoom = async (req: Request, res: Response): Promise<void> => {
               },
             },
           },
-          
         },
-
       },
     });
     if (!room) {
@@ -127,11 +132,11 @@ export const getRoom = async (req: Request, res: Response): Promise<void> => {
         status: "PENDING",
       },
       include: {
-        user:{
+        user: {
           select: {
             name: true,
-          }
-        }
+          },
+        },
       },
     });
     const newRoom = {
@@ -169,6 +174,17 @@ export const joinRoomRequest = async (
       res
         .status(400)
         .json({ message: "You are already a member of this room" });
+      return;
+    }
+    const ifAlreadyRequested = await prisma.joinRequest.findFirst({
+      where: {
+        user_id: userId,
+        room_id: roomId,
+        status: "PENDING",
+      },
+    });
+    if (ifAlreadyRequested) {
+      res.status(404).json({ message: "User request already exists" });
       return;
     }
     const request = await prisma.joinRequest.create({
@@ -259,10 +275,10 @@ export const promoteUser = async (
   const { memberId } = req.params;
   const { role } = req.body;
   try {
-    if (role != "EDITOR" && role != "OWNER") {
-      res.status(400).json({ message: "Role is not permitted or Invalid" });
-      return;
-    }
+    // if (role != "EDITOR" && role != "OWNER") {
+    //   res.status(400).json({ message: "Role is not permitted or Invalid" });
+    //   return;
+    // }
     const existingMember = await prisma.room_member.findFirst({
       where: {
         id: memberId,
@@ -278,7 +294,7 @@ export const promoteUser = async (
 
     await prisma.room_member.update({
       where: {
-        id: memberId, // Now we use the id from the found record
+        id: memberId,
       },
       data: {
         role: role as RoomRole,
@@ -339,6 +355,36 @@ export const leaveRoom = async (req: Request, res: Response): Promise<void> => {
   const { roomId } = req.params;
   const userId = ((req as JwtPayload) || String).data?.id;
   try {
+    const member = await prisma.room_member.findFirst({
+      where: {
+        room_id: roomId,
+        user_id: userId,
+      },
+      select: {
+        role: true,
+        id: true,
+      },
+    });
+
+    if (!member) {
+      res.status(404).json({ message: "Room member not found!" });
+      return;
+    }
+    if (member.role === "OWNER") {
+      const result = await prisma.room.delete({
+        where: {
+          id: roomId,
+        },
+      });
+      res.status(200).json({ message: "Room deleted successfully" });
+      return;
+    }
+    const result = await prisma.room_member.delete({
+      where: {
+        id: member.id,
+      },
+    });
+    res.status(200).json({ message: "Room left successfully" });
   } catch (err) {
     res.status(500).json({ message: "Internal server error" });
   }
@@ -394,8 +440,8 @@ export const getMessage = async (
             name: true,
             id: true,
           },
-        }
-      }
+        },
+      },
     });
     res.status(200).json(messages);
   } catch (err) {
@@ -405,7 +451,19 @@ export const getMessage = async (
 export const deleteRoom = async (
   req: Request,
   res: Response
-): Promise<void> => {};
+): Promise<void> => {
+  try {
+    const { roomId } = req.params;
+    await prisma.room.delete({
+      where: {
+        id: roomId,
+      },
+    });
+    res.status(200).json({ message: "Room deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
 
 export const updateRoom = async (
   req: Request,
